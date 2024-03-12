@@ -35,14 +35,13 @@ _CFG.MODEL.HEAD.CLASS_LABELS = []
 # -----------------------------------------------------------------------------
 _CFG.INPUT = CN()
 _CFG.INPUT.IMAGE_SIZE = [512, 512]
-_CFG.INPUT.MAKE_DIVISIBLE_BY = 8
 
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------
-_CFG.DATASETS = CN()
-_CFG.DATASETS.TRAIN_ROOT_DIRS = []
-_CFG.DATASETS.TEST_ROOT_DIRS = []
+_CFG.DATASET = CN()
+_CFG.DATASET.TRAIN_ROOT_DIRS = []
+_CFG.DATASET.TEST_ROOT_DIRS = []
 
 # -----------------------------------------------------------------------------
 # DataLoader
