@@ -20,7 +20,7 @@ def create_loader(dataset:Dataset,
     if shuffle:
         generator = torch.Generator()
         generator.manual_seed(int(time.time()))
-        sampler = RandomSampler(dataset)
+        sampler = RandomSampler(dataset, generator=generator)
     else:
         sampler = SequentialSampler(dataset)
 
