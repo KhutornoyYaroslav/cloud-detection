@@ -5,7 +5,7 @@ from core.data.datasets import build_dataset
 
 def main():
     # parse arguments
-    parser = argparse.ArgumentParser(description='Dataset Testing')
+    parser = argparse.ArgumentParser(description='Dataset Testing For Cloud Detection In Satellite Images')
     parser.add_argument("--config-file", dest="config_file", required=False, type=str, default="configs/cfg.yaml",
                         help="Path to config file")
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
