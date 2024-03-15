@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from core.engine.validation import do_validation
 from torch.utils.tensorboard import SummaryWriter
-from core.engine.metrics import Dice, JaccardIndex
+from core.engine.metrics import Dice, JaccardIndex, Precision, Recall
 from core.utils.tensorboard import update_tensorboard_image_samples
 
 
@@ -18,11 +18,18 @@ def update_summary_writer(summary_writer, stats, iterations, optimizer, global_s
 
         dice_dict = {}
         jaccard_dict = {}
+        precision_dict = {}
+        recall_dict = {}
         for idx, label in enumerate(class_labels):
             dice_dict[f"dice_{label}"] = stats['dice_sum'][idx] / iterations
             jaccard_dict[f"jaccard_{label}"] = stats['jaccard_sum'][idx] / iterations
+            precision_dict[f"precision_{label}"] = stats['precision_sum'][idx] / iterations
+            recall_dict[f"recall_{label}"] = stats['recall_sum'][idx] / iterations
+
         summary_writer.add_scalars(domen + '/dice', dice_dict, global_step=global_step)
         summary_writer.add_scalars(domen + '/jaccard', jaccard_dict, global_step=global_step)
+        summary_writer.add_scalars(domen + '/precision', precision_dict, global_step=global_step)
+        summary_writer.add_scalars(domen + '/recall', recall_dict, global_step=global_step)
         summary_writer.add_scalar(domen + '/loss', stats['loss_sum'] / iterations, global_step=global_step)
 
         # images
@@ -75,13 +82,15 @@ def do_train(cfg,
     cross_entropy = torch.nn.CrossEntropyLoss(reduction='none')
     dice_metric = Dice(len(cfg.MODEL.CLASS_LABELS))
     jaccard_metric = JaccardIndex(len(cfg.MODEL.CLASS_LABELS))
+    precision_metric = Precision(len(cfg.MODEL.CLASS_LABELS))
+    recall_metric = Recall(len(cfg.MODEL.CLASS_LABELS))
 
     # epoch loop
     for epoch in range(start_epoch, end_epoch):
         arguments["epoch"] = epoch + 1
 
         # create progress bar
-        print(('\n' + '%10s' * 4 + '%20s' * 2) % ('epoch', 'gpu_mem', 'lr', 'loss', 'dice', 'jaccard'))
+        print(('\n' + '%10s' * 4 + '%20s' * 4) % ('epoch', 'gpu_mem', 'lr', 'loss', 'dice', 'jaccard', 'precision', 'recall'))
         pbar = enumerate(data_loader_train)
         pbar = tqdm(pbar, total=len(data_loader_train))
 
@@ -90,6 +99,8 @@ def do_train(cfg,
             'loss_sum': 0,
             'dice_sum': 0,
             'jaccard_sum': 0,
+            'precision_sum': 0,
+            'recall_sum': 0,
             'best_samples': [],
             'worst_samples': []
         }
@@ -118,14 +129,18 @@ def do_train(cfg,
             optimizer.step()
 
             # calculate metrics
-            pred_labels = torch.softmax(output, dim=1).argmax(dim=1)    # (n, h, w)
-            dice = dice_metric(pred_labels, target_labels, roi)         # (n, k)
-            jaccard = jaccard_metric(pred_labels, target_labels, roi)   # (n, k)
+            pred_labels = torch.softmax(output, dim=1).argmax(dim=1)        # (n, h, w)
+            dice = dice_metric(pred_labels, target_labels, roi)             # (n, k)
+            jaccard = jaccard_metric(pred_labels, target_labels, roi)       # (n, k)
+            precision = precision_metric(pred_labels, target_labels, roi)   # (n, k)
+            recall = recall_metric(pred_labels, target_labels, roi)         # (n, k)
 
             # update stats
             stats['loss_sum'] += loss_mean.item()
             stats['dice_sum'] += torch.mean(dice, 0).cpu().numpy()
             stats['jaccard_sum'] += torch.mean(jaccard, 0).cpu().numpy()
+            stats['precision_sum'] += torch.mean(precision, 0).cpu().numpy()
+            stats['recall_sum'] += torch.mean(recall, 0).cpu().numpy()
 
             # update best samples
             update_tensorboard_image_samples(limit=cfg.TENSORBOARD.BEST_SAMPLES_NUM,
@@ -156,13 +171,19 @@ def do_train(cfg,
             dice_avg = [f'{x:.2f}' for x in dice_avg]
             jaccard_avg = stats['jaccard_sum'] / (iteration + 1)
             jaccard_avg = [f'{x:.2f}' for x in jaccard_avg]
+            precision_avg = stats['precision_sum'] / (iteration + 1)
+            precision_avg = [f'{x:.2f}' for x in precision_avg]
+            recall_avg = stats['recall_sum'] / (iteration + 1)
+            recall_avg = [f'{x:.2f}' for x in recall_avg]
 
-            s = ('%10s' * 2 + '%10.4g' * 2 + '%20s' * 2) % ('%g/%g' % (epoch + 1, end_epoch),
+            s = ('%10s' * 2 + '%10.4g' * 2 + '%20s' * 4) % ('%g/%g' % (epoch + 1, end_epoch),
                                                mem,
                                                optimizer.param_groups[0]["lr"],
                                                stats['loss_sum'] / (iteration + 1),
                                                ", ".join(dice_avg),
-                                               ", ".join(jaccard_avg))
+                                               ", ".join(jaccard_avg),
+                                               ", ".join(precision_avg),
+                                               ", ".join(recall_avg))
             pbar.set_description(s)
 
         # update learning rate
@@ -185,10 +206,18 @@ def do_train(cfg,
             val_dice = [f'{x:.2f}' for x in val_dice]
             val_jaccard = val_stats['jaccard_sum'] / val_stats['iterations']
             val_jaccard = [f'{x:.2f}' for x in val_jaccard]
+            val_precision = val_stats['precision_sum'] / val_stats['iterations']
+            val_precision = [f'{x:.2f}' for x in val_precision]
+            val_recall = val_stats['recall_sum'] / val_stats['iterations']
+            val_recall = [f'{x:.2f}' for x in val_recall]
 
             log_preamb = 'Validation results: '
             print((log_preamb + '%10s' * 1 + '%20s' * 2) % ('loss', 'dice', 'jaccard'))
-            print((len(log_preamb) * ' ' + '%10.4g' * 1 + '%20s' * 2) % (val_loss, ", ".join(val_dice), ", ".join(val_jaccard)))
+            print((len(log_preamb) * ' ' + '%10.4g' * 1 + '%20s' * 4) % (val_loss,
+                                                                         ", ".join(val_dice),
+                                                                         ", ".join(val_jaccard),
+                                                                         ", ".join(val_precision),
+                                                                         ", ".join(val_recall)))
             print('\n')
 
             if summary_writer:

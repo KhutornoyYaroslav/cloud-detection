@@ -1,7 +1,7 @@
 import torch
 import logging
 from tqdm import tqdm
-from core.engine.metrics import Dice, JaccardIndex
+from core.engine.metrics import Dice, JaccardIndex, Precision, Recall
 from core.utils.tensorboard import update_tensorboard_image_samples
 
 
@@ -12,12 +12,16 @@ def do_validation(cfg, model, data_loader, device):
     cross_entropy = torch.nn.CrossEntropyLoss(reduction='none')
     dice_metric = Dice(len(cfg.MODEL.CLASS_LABELS))
     jaccard_metric = JaccardIndex(len(cfg.MODEL.CLASS_LABELS))
+    precision_metric = Precision(len(cfg.MODEL.CLASS_LABELS))
+    recall_metric = Recall(len(cfg.MODEL.CLASS_LABELS))
 
     # create stats
     stats = {
         'loss_sum': 0,
         'dice_sum': 0,
         'jaccard_sum': 0,
+        'precision_sum': 0,
+        'recall_sum': 0,
         'best_samples': [],
         'worst_samples': [],
         'iterations': 0
@@ -40,14 +44,18 @@ def do_validation(cfg, model, data_loader, device):
             loss = loss * roi                                       # (n, h, w)
 
             # calculate metrics
-            pred_labels = torch.softmax(output, dim=1).argmax(dim=1)    # (n, h, w)
-            dice = dice_metric(pred_labels, target_labels, roi)         # (n, k)
-            jaccard = jaccard_metric(pred_labels, target_labels, roi)   # (n, k)
+            pred_labels = torch.softmax(output, dim=1).argmax(dim=1)        # (n, h, w)
+            dice = dice_metric(pred_labels, target_labels, roi)             # (n, k)
+            jaccard = jaccard_metric(pred_labels, target_labels, roi)       # (n, k)
+            precision = precision_metric(pred_labels, target_labels, roi)   # (n, k)
+            recall = recall_metric(pred_labels, target_labels, roi)         # (n, k)
 
             # update stats
             stats['loss_sum'] += torch.mean(loss).item()
             stats['dice_sum'] += torch.mean(dice, 0).cpu().numpy()
             stats['jaccard_sum'] += torch.mean(jaccard, 0).cpu().numpy()
+            stats['precision_sum'] += torch.mean(precision, 0).cpu().numpy()
+            stats['recall_sum'] += torch.mean(recall, 0).cpu().numpy()
             stats['iterations'] += 1
 
             # update best samples
