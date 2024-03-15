@@ -18,8 +18,13 @@ def train_model(cfg, args):
     model = build_model(cfg)
     model.to(device)
 
-    # create data loader
-    data_loader = make_data_loader(cfg, is_train=True)
+    # create data loaders
+    data_loader_train = make_data_loader(cfg, is_train=True)
+    if data_loader_train is None:
+        logger.error(f"Failed to create train dataset loader.")
+        return None
+
+    data_loader_val = make_data_loader(cfg, is_train=False)
 
     # create optimizer
     optimizer = make_optimizer(cfg, model)
@@ -32,7 +37,7 @@ def train_model(cfg, args):
     arguments.update(extra_checkpoint_data)
 
     # Train model
-    model = do_train(cfg, model, data_loader, optimizer, scheduler, checkpointer, device, arguments, args)
+    model = do_train(cfg, model, data_loader_train, data_loader_val, optimizer, scheduler, checkpointer, device, arguments, args)
 
     return model
 
@@ -48,8 +53,8 @@ def main():
                         help="Path to config file")
     parser.add_argument('--save-step', dest="save_step", required=False, type=int, default=1,
                         help='Save checkpoint every save_step')
-    parser.add_argument('--eval-step', dest="eval_step", required=False, type=int, default=1,
-                        help='Evaluate datasets every eval_step, disabled when eval_step < 0')
+    parser.add_argument('--val-step', dest="val_step", required=False, type=int, default=1,
+                        help='Validate model every val_step, disabled when val_step <= 0')
     parser.add_argument('--use-tensorboard', dest="use_tensorboard", required=False, default=True, type=str2bool,
                         help='Use tensorboard summary writer')
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,

@@ -3,31 +3,46 @@ import torch
 import logging
 import numpy as np
 from tqdm import tqdm
-# from .validation import eval_dataset
-# from torchvision.utils import make_grid
-# from core.data import make_data_loader
+from core.engine.validation import do_validation
 from torch.utils.tensorboard import SummaryWriter
 from core.engine.metrics import Dice, JaccardIndex
 from core.utils.tensorboard import update_tensorboard_image_samples
 
 
-# def do_eval(cfg, model, forward_method, loss_dist_key, loss_rate_keys, p_frames):
-#     torch.cuda.empty_cache()
-#     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-#         model = model.module
+def update_summary_writer(summary_writer, stats, iterations, optimizer, global_step, class_labels, is_train: bool = True):
+    domen = "train" if is_train else "val"
+    with torch.no_grad():
+        # scalars
+        if is_train:
+            summary_writer.add_scalar('optimizer/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
 
-#     data_loader = make_data_loader(cfg, False)
-#     model.eval()
-#     device = torch.device(cfg.MODEL.DEVICE)
-#     result_dict = eval_dataset(forward_method, loss_dist_key, loss_rate_keys, p_frames, data_loader, device, cfg)
+        dice_dict = {}
+        jaccard_dict = {}
+        for idx, label in enumerate(class_labels):
+            dice_dict[f"dice_{label}"] = stats['dice_sum'][idx] / iterations
+            jaccard_dict[f"jaccard_{label}"] = stats['jaccard_sum'][idx] / iterations
+        summary_writer.add_scalars(domen + '/dice', dice_dict, global_step=global_step)
+        summary_writer.add_scalars(domen + '/jaccard', jaccard_dict, global_step=global_step)
+        summary_writer.add_scalar(domen + '/loss', stats['loss_sum'] / iterations, global_step=global_step)
 
-#     torch.cuda.empty_cache()
-#     return result_dict
+        # images
+        if len(stats['best_samples']):
+            tb_images = [s[1] for s in stats['best_samples']]
+            image_grid = torch.concatenate(tb_images, dim=1)
+            summary_writer.add_image(domen + '/best_samples', image_grid, global_step=global_step)
+        if len(stats['worst_samples']):
+            tb_images = [s[1] for s in stats['worst_samples']]
+            image_grid = torch.concatenate(tb_images, dim=1)
+            summary_writer.add_image(domen + '/worst_samples', image_grid, global_step=global_step)
+
+        # save
+        summary_writer.flush()
 
 
 def do_train(cfg,
              model,
-             data_loader,
+             data_loader_train,
+             data_loader_val,
              optimizer,
              scheduler,
              checkpointer,
@@ -50,7 +65,7 @@ def do_train(cfg,
         summary_writer = None
 
     # prepare to train
-    iters_per_epoch = len(data_loader)
+    iters_per_epoch = len(data_loader_train)
     total_steps = iters_per_epoch * cfg.SOLVER.MAX_EPOCH
     start_epoch = arguments["epoch"]
     end_epoch = cfg.SOLVER.MAX_EPOCH
@@ -67,8 +82,8 @@ def do_train(cfg,
 
         # create progress bar
         print(('\n' + '%10s' * 4 + '%20s' * 2) % ('epoch', 'gpu_mem', 'lr', 'loss', 'dice', 'jaccard'))
-        pbar = enumerate(data_loader)
-        pbar = tqdm(pbar, total=len(data_loader))
+        pbar = enumerate(data_loader_train)
+        pbar = tqdm(pbar, total=len(data_loader_train))
 
         # create stats
         stats = {
@@ -120,7 +135,8 @@ def do_train(cfg,
                                              pred_labels=pred_labels, 
                                              target_labels=target_labels,
                                              min_metric_better=True,
-                                             blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING)
+                                             blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
+                                             nonzero_factor=0.25)
 
             # update worst samples
             update_tensorboard_image_samples(limit=cfg.TENSORBOARD.WORST_SAMPLES_NUM,
@@ -130,7 +146,8 @@ def do_train(cfg,
                                              pred_labels=pred_labels, 
                                              target_labels=target_labels,
                                              min_metric_better=False,
-                                             blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING)
+                                             blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
+                                             nonzero_factor=0.25)
 
             # update progress bar
             mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)
@@ -152,62 +169,48 @@ def do_train(cfg,
         if scheduler is not None:
             scheduler.step()
 
-        # # do evaluation
-        # if (args.eval_step > 0) and (epoch % args.eval_step == 0) and len(cfg.DATASET.TEST_ROOT_DIRS):
-        #     print('\nEvaluation ...')
-        #     result_dict = do_eval(cfg,
-        #                           model,
-        #                           stage_params['forward_method'],
-        #                           stage_params['loss_dist_key'],
-        #                           stage_params['loss_rate_keys'],
-        #                           stage_params['p_frames'])
+        # do validation
+        if (args.val_step > 0) and (epoch % args.val_step == 0) and (data_loader_val is not None):
+            print('\n')
+            logger.info("Start validation ...")
 
-        #     print(('\n' + 'Evaluation results:' + '%12s' * 2 + '%25s' * 2) % ('loss', 'mse', 'bpp', 'psnr'))
-        #     bpp_print = [f'{x:.2f}' for x in result_dict['bpp']]
-        #     psnr = 10 * np.log10(1.0 / (result_dict['psnr']))
-        #     psnr_print = [f'{x:.1f}' for x in psnr]
-        #     print('                   ' + ('%12.4g' * 2 + '%25s' * 2) %
-        #           (result_dict['loss_sum'],
-        #            result_dict['mse_sum'],
-        #            ", ".join(bpp_print),
-        #            ", ".join(psnr_print))
-        #           )
+            torch.cuda.empty_cache()
+            model.eval()
+            val_stats = do_validation(cfg, model, data_loader_val, device)
+            torch.cuda.empty_cache()
+            model.train()
 
-        #     add_metrics(cfg, summary_writer, result_dict, global_step, is_train=False)
+            val_loss = val_stats['loss_sum'] / val_stats['iterations']
+            val_dice = val_stats['dice_sum'] / val_stats['iterations']
+            val_dice = [f'{x:.2f}' for x in val_dice]
+            val_jaccard = val_stats['jaccard_sum'] / val_stats['iterations']
+            val_jaccard = [f'{x:.2f}' for x in val_jaccard]
 
-        #     model.train()
+            log_preamb = 'Validation results: '
+            print((log_preamb + '%10s' * 1 + '%20s' * 2) % ('loss', 'dice', 'jaccard'))
+            print((len(log_preamb) * ' ' + '%10.4g' * 1 + '%20s' * 2) % (val_loss, ", ".join(val_dice), ", ".join(val_jaccard)))
+            print('\n')
+
+            if summary_writer:
+                update_summary_writer(summary_writer,
+                                      val_stats,
+                                      val_stats['iterations'],
+                                      optimizer,
+                                      global_step,
+                                      cfg.MODEL.CLASS_LABELS,
+                                      False)
 
         # save epoch results
         if epoch % args.save_step == 0:
             checkpointer.save("model_{:06d}".format(global_step), **arguments)
             if summary_writer:
-                with torch.no_grad():
-                    # scalars
-                    summary_writer.add_scalar('train/loss', stats['loss_sum'] / (iteration + 1), global_step=global_step)
-                    summary_writer.add_scalar('optimizer/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
-
-                    dice_dict = {}
-                    jaccard_dict = {}
-                    for idx, label in enumerate(cfg.MODEL.CLASS_LABELS):
-                        dice_dict[f"dice_{label}"] = stats['dice_sum'][idx] / (iteration + 1)
-                        jaccard_dict[f"jaccard_{label}"] = stats['jaccard_sum'][idx] / (iteration + 1)
-
-                    summary_writer.add_scalars(f'train/dice', dice_dict, global_step=global_step)
-                    summary_writer.add_scalars(f'train/jaccard', jaccard_dict, global_step=global_step)
-
-                    # images
-                    if len(stats['best_samples']):
-                        tb_images = [s[1] for s in stats['best_samples']]
-                        image_grid = torch.concatenate(tb_images, dim=1)
-                        summary_writer.add_image('train/best_samples', image_grid, global_step=global_step)
-
-                    if len(stats['worst_samples']):
-                        tb_images = [s[1] for s in stats['worst_samples']]
-                        image_grid = torch.concatenate(tb_images, dim=1)
-                        summary_writer.add_image('train/worst_samples', image_grid, global_step=global_step)
-
-                    # save
-                    summary_writer.flush()
+                update_summary_writer(summary_writer,
+                                      stats,
+                                      iteration + 1,
+                                      optimizer,
+                                      global_step,
+                                      cfg.MODEL.CLASS_LABELS,
+                                      True)
 
     # save final model
     checkpointer.save("model_final", **arguments)
