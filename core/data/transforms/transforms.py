@@ -205,6 +205,8 @@ class ConvertColor(object):
     def __call__(self, input, target, roi = None):
         if self.current == 'BGR' and self.transform == 'HSV':
             input = cv.cvtColor(input, cv.COLOR_BGR2HSV)
+        elif self.current == 'BGR' and self.transform == 'GRAY':
+            input = cv.cvtColor(input, cv.COLOR_BGR2GRAY)
         elif self.current == 'RGB' and self.transform == 'HSV':
             input = cv.cvtColor(input, cv.COLOR_RGB2HSV)
         elif self.current == 'BGR' and self.transform == 'RGB':
