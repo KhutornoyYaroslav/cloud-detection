@@ -38,8 +38,12 @@ def test_model(cfg,
     # read image
     image = cv.imread(src_path, cv.IMREAD_COLOR)
 
+    # resize image
+    if resize_factor != 1.0:
+        image = cv.resize(image, dsize=None, fx=resize_factor, fy=resize_factor, interpolation=cv.INTER_AREA)
+
     # split to tiles
-    tiles_pad = 0
+    tiles_pad = 256
     tiles = image_to_tiles(image, tile_size, tiles_pad)
 
     # TODO: as parameter
@@ -95,8 +99,8 @@ def main():
                         help='Path where to save segmentation result')
     parser.add_argument('--tile-size', dest='tile_size', type=int, default=1536,
                         help="Size of output frames")
-    # parser.add_argument('--resize-factor', dest='resize_factor', type=float, default=1.0,
-    #                     help="Factor to resize tiles before feeding to model")
+    parser.add_argument('--resize-factor', dest='resize_factor', type=float, default=1.0,
+                        help="Factor to resize tiles before feeding to model")
     parser.add_argument('opts', default=None, nargs=argparse.REMAINDER,
                         help="Modify config options using the command-line")
     args = parser.parse_args()
@@ -111,7 +115,7 @@ def main():
     cfg.freeze()
 
     # test model
-    test_model(cfg, args.src_path, args.dst_path, args.tile_size, None) # TODO: resize_factor
+    test_model(cfg, args.src_path, args.dst_path, args.tile_size, args.resize_factor)
 
 
 if __name__ == "__main__":
