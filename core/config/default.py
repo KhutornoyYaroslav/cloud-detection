@@ -24,7 +24,7 @@ _CFG.INPUT.IMAGE_SIZE = [512, 512]
 # -----------------------------------------------------------------------------
 _CFG.DATASET = CN()
 _CFG.DATASET.TRAIN_ROOT_DIRS = []
-_CFG.DATASET.TEST_ROOT_DIRS = []
+_CFG.DATASET.VAL_ROOT_DIRS = []
 
 # -----------------------------------------------------------------------------
 # DataLoader

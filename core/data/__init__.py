@@ -35,10 +35,8 @@ def make_data_loader(cfg, is_train: bool = True) -> DataLoader:
 
     if is_train:
         dataset_roots = cfg.DATASET.TRAIN_ROOT_DIRS
-        batch_size = cfg.SOLVER.BATCH_SIZE
     else:
-        dataset_roots = cfg.DATASET.TEST_ROOT_DIRS
-        batch_size = cfg.TEST.BATCH_SIZE
+        dataset_roots = cfg.DATASET.VAL_ROOT_DIRS
 
     # create dataset
     datasets = []
@@ -46,10 +44,14 @@ def make_data_loader(cfg, is_train: bool = True) -> DataLoader:
         dataset = build_dataset(cfg, root_dir, is_train)
         logger.info(f"Loaded dataset from '{root_dir}'. Size: {len(dataset)}")
         datasets.append(dataset)
+
+    if not datasets:
+        return None
+
     dataset = ConcatDataset(datasets)
 
     # create dataloader
     shuffle = is_train
-    data_loader = create_loader(dataset, shuffle, batch_size, cfg.DATA_LOADER.NUM_WORKERS, cfg.DATA_LOADER.PIN_MEMORY)
+    data_loader = create_loader(dataset, shuffle, cfg.SOLVER.BATCH_SIZE, cfg.DATA_LOADER.NUM_WORKERS, cfg.DATA_LOADER.PIN_MEMORY)
 
     return data_loader
