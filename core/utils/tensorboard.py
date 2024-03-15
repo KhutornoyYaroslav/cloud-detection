@@ -30,7 +30,7 @@ def draw_labels(input: torch.Tensor,
     with torch.no_grad():
         # to rgb
         if input.shape[0] == 1:
-            input = input.repeat(3, -1)
+            input = input.expand((3, -1, -1))
 
         # draw labels
         mask = torch.zeros_like(input)
@@ -69,8 +69,14 @@ def create_tensorboard_sample_collage(input: torch.Tensor,
     """
     assert input.shape[1:] == pred_labels.shape[:2] == target_labels.shape[:2]
 
-    pred_image = draw_labels(input, pred_labels, class_colors, alpha)
-    target_image = draw_labels(input, target_labels, class_colors, alpha)
+    with torch.no_grad():
+        # to rgb
+        if input.shape[0] == 1:
+            input = input.expand((3, -1, -1))
+
+        # draw labels
+        pred_image = draw_labels(input, pred_labels, class_colors, alpha)
+        target_image = draw_labels(input, target_labels, class_colors, alpha)
 
     return torch.cat([input, target_image, pred_image], dim=-1)
 
