@@ -15,6 +15,7 @@ from core.data.transforms.transforms import (
     RandomGamma,
     RandomMirror,
     RandomRotate,
+    ConvertColor,
     ConvertToInts,
     ConvertFromInts,
     TransformCompose
@@ -47,16 +48,18 @@ class CloudDataset(Dataset):
     def build_transforms(self, img_size: Tuple[int, int], is_train: bool = True):
         if is_train:
             transform = [
+                ConvertColor('BGR', 'GRAY'),
                 RandomCrop(0.5, 1.0, 0.5, True),
                 RandomMirror(0.5, 0.5),
                 RandomRotate(-45, 45, 0.5),
                 Resize(img_size),
                 ConvertFromInts(),
-                RandomGamma(0.5, 2.0, 0.25),
+                # RandomGamma(0.5, 2.0, 0.25),
                 Clip()
             ]
         else:
             transform = [
+                ConvertColor('BGR', 'GRAY'),
                 Resize(img_size),
                 ConvertFromInts(),
                 Clip()
