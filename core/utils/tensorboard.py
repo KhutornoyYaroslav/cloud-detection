@@ -3,6 +3,45 @@ import numpy as np
 from typing import Tuple, List
 
 
+def draw_labels(input: torch.Tensor,
+                labels: torch.Tensor,
+                class_colors: List[Tuple[int, int, int]],
+                alpha: float = 0.5) -> torch.Tensor:
+    """
+    Draw segmentation masks.
+
+    Parameters:
+        input : tensor
+            Input image with shape (C, H, W).
+            Can be in grayscale or rgb color format.
+        labels : tensor
+            Class labels (integers) with shape (H, W).
+        class_colors : list
+            List of colors (R, G, B) for each class.
+        alpha : float
+            Coefficient for blending images in range [0, 1].
+    Returns:
+        image : tensor
+            Result image with shape (3, H, W).
+    """
+    assert input.shape[1:] == labels.shape
+    alpha = np.clip(alpha, 0.0, 1.0)
+
+    with torch.no_grad():
+        # to rgb
+        if input.shape[0] == 1:
+            input = input.repeat(3, -1)
+
+        # draw labels
+        mask = torch.zeros_like(input)
+        for class_idx, color in enumerate(class_colors):
+            color = torch.tensor(color, dtype=mask.dtype, device=mask.device).unsqueeze(1)
+            mask[:, labels.type(torch.long) == class_idx] = color
+        result = (1 - alpha) * input + alpha * mask
+
+    return result
+
+
 def create_tensorboard_sample_collage(input: torch.Tensor,
                                       pred_labels: torch.Tensor,
                                       target_labels: torch.Tensor,
@@ -29,22 +68,11 @@ def create_tensorboard_sample_collage(input: torch.Tensor,
             Result collage with shape (C, H, 3 * W).
     """
     assert input.shape[1:] == pred_labels.shape[:2] == target_labels.shape[:2]
-    alpha = np.clip(alpha, 0.0, 1.0)
 
-    with torch.no_grad():
-        # to rgb
-        if input.shape[0] == 1:
-            input = input.repeat(3, -1)
+    pred_image = draw_labels(input, pred_labels, class_colors, alpha)
+    target_image = draw_labels(input, target_labels, class_colors, alpha)
 
-        # draw labels
-        mask = torch.zeros(size=(2, *input.shape), dtype=torch.float, device=input.device)
-        for class_idx, color in enumerate(class_colors):
-            color = torch.tensor(color, dtype=mask.dtype, device=mask.device).unsqueeze(1)
-            mask[0, :, target_labels.type(torch.long) == class_idx] = color
-            mask[1, :, pred_labels.type(torch.long) == class_idx] = color
-        labels = (1 - alpha) * torch.stack([input, input], dim=0) + alpha * mask
-
-    return torch.cat([input, labels[0], labels[1]], dim=-1)
+    return torch.cat([input, target_image, pred_image], dim=-1)
 
 
 def update_tensorboard_image_samples(limit: int,
@@ -55,7 +83,7 @@ def update_tensorboard_image_samples(limit: int,
                                      target_labels: torch.Tensor,
                                      min_metric_better: bool,
                                      blending_alpha: float = 0.5,
-                                     nonzero_only: bool = True):
+                                     nonzero_factor: float = 0.0):
     """
     Updates array with best/worst samples images.
 
@@ -77,8 +105,9 @@ def update_tensorboard_image_samples(limit: int,
             Whether to choose sample with minimum metric or maximum as best sample.
         blending_alpha : float
             Coefficient for blending images (input and labels).
-        nonzero_only : bool
-            Wheter to skip samples with only zero class label or not.
+        nonzero_factor : bool
+            Percent threshold to select samples that contain > 'nonzero_factor' nonzero class pixels.
+            Useful to skip samples with dominating background class.
 
     Returns:
         None
@@ -96,10 +125,12 @@ def update_tensorboard_image_samples(limit: int,
         pred_labels = pred_labels.detach()
         target_labels = target_labels.detach()
 
+        # select only nonzero samples
         idxs = torch.arange(input.shape[0], dtype=torch.long, device=input.device)
-        if nonzero_only:
-            cnz = torch.count_nonzero(target_labels, dim=(1, 2))
-            idxs = idxs[cnz > 0]
+        nonzero_factor = np.clip(nonzero_factor, 0.0, 1.0)
+        cnz = torch.count_nonzero(target_labels, dim=(1, 2))
+        ctot = target_labels.shape[1] * target_labels.shape[2]
+        idxs = idxs[cnz / ctot > nonzero_factor]
 
         if torch.numel(idxs):
             # find best sample
