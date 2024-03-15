@@ -59,7 +59,7 @@ def do_validation(cfg, model, data_loader, device):
                                              target_labels=target_labels,
                                              min_metric_better=True,
                                              blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
-                                             nonzero_factor=0.25)
+                                             nonzero_factor=0.1)
 
             # update worst samples
             update_tensorboard_image_samples(limit=cfg.TENSORBOARD.WORST_SAMPLES_NUM,
@@ -70,6 +70,6 @@ def do_validation(cfg, model, data_loader, device):
                                              target_labels=target_labels,
                                              min_metric_better=False,
                                              blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
-                                             nonzero_factor=0.25)
+                                             nonzero_factor=0.1)
 
     return stats
