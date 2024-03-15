@@ -212,7 +212,7 @@ def do_train(cfg,
             val_recall = [f'{x:.2f}' for x in val_recall]
 
             log_preamb = 'Validation results: '
-            print((log_preamb + '%10s' * 1 + '%20s' * 2) % ('loss', 'dice', 'jaccard'))
+            print((log_preamb + '%10s' * 1 + '%20s' * 4) % ('loss', 'dice', 'jaccard', 'precision', 'recall'))
             print((len(log_preamb) * ' ' + '%10.4g' * 1 + '%20s' * 4) % (val_loss,
                                                                          ", ".join(val_dice),
                                                                          ", ".join(val_jaccard),
