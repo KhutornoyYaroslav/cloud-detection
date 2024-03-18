@@ -1,4 +1,5 @@
 DATASET:
+  CLASS_LABELS: [background, fog, cloud]
   TRAIN_ROOT_DIRS: []
   VAL_ROOT_DIRS: []
 DATA_LOADER:
@@ -7,9 +8,10 @@ DATA_LOADER:
 INPUT:
   DEPTH: 3
   IMAGE_SIZE: [512, 512]
+  NORM_MEAN: [0, 0, 0]
+  NORM_SCALE: [255, 255, 255]
 MODEL:
   ARCHITECTURE: ResUnetPlusPlus
-  CLASS_LABELS: [background, fog, cloud]
   DEVICE: cuda
   PRETRAINED_WEIGHTS:
 OUTPUT_DIR: outputs/test

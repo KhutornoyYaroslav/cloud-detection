@@ -8,7 +8,6 @@ _CFG = CN()
 # ---------------------------------------------------------------------------- #
 _CFG.MODEL = CN()
 _CFG.MODEL.ARCHITECTURE = "ResUnetPlusPlus"
-_CFG.MODEL.CLASS_LABELS = ["fog", "cloud"]
 _CFG.MODEL.DEVICE = "cpu"
 _CFG.MODEL.PRETRAINED_WEIGHTS = ""
 
@@ -18,11 +17,14 @@ _CFG.MODEL.PRETRAINED_WEIGHTS = ""
 _CFG.INPUT = CN()
 _CFG.INPUT.DEPTH = 3
 _CFG.INPUT.IMAGE_SIZE = [512, 512]
+_CFG.INPUT.NORM_MEAN = [0, 0, 0]
+_CFG.INPUT.NORM_SCALE = [255, 255, 255]
 
 # -----------------------------------------------------------------------------
 # Dataset
 # -----------------------------------------------------------------------------
 _CFG.DATASET = CN()
+_CFG.DATASET.CLASS_LABELS = ["background", "fog", "cloud"]
 _CFG.DATASET.TRAIN_ROOT_DIRS = []
 _CFG.DATASET.VAL_ROOT_DIRS = []
 
