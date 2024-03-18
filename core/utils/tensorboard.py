@@ -5,7 +5,7 @@ from typing import Tuple, List
 
 def draw_labels(input: torch.Tensor,
                 labels: torch.Tensor,
-                class_colors: List[Tuple[int, int, int]],
+                class_colors: List[Tuple[float, float, float]],
                 alpha: float = 0.5) -> torch.Tensor:
     """
     Draw segmentation masks.
@@ -45,7 +45,7 @@ def draw_labels(input: torch.Tensor,
 def create_tensorboard_sample_collage(input: torch.Tensor,
                                       pred_labels: torch.Tensor,
                                       target_labels: torch.Tensor,
-                                      class_colors: List[Tuple[int, int, int]],
+                                      class_colors: List[Tuple[float, float, float]],
                                       alpha: float = 0.5) -> torch.Tensor:
     """
     Creates tensorboard sample collage.
@@ -88,6 +88,7 @@ def update_tensorboard_image_samples(limit: int,
                                      pred_labels: torch.Tensor,
                                      target_labels: torch.Tensor,
                                      min_metric_better: bool,
+                                     class_colors: List[Tuple[float, float, float]],
                                      blending_alpha: float = 0.5,
                                      nonzero_factor: float = 0.0):
     """
@@ -109,22 +110,14 @@ def update_tensorboard_image_samples(limit: int,
             Target class labels (integers) with shape (N, H, W).
         min_metric_better : bool
             Whether to choose sample with minimum metric or maximum as best sample.
+        class_colors : list
+            List of colors (R, G, B) for each class.
         blending_alpha : float
             Coefficient for blending images (input and labels).
         nonzero_factor : bool
             Percent threshold to select samples that contain > 'nonzero_factor' nonzero class pixels.
             Useful to skip samples with dominating background class.
-
-    Returns:
-        None
-    """   
-    # TODO: as parameter
-    class_colors = [
-        (0, 0, 0), # background
-        (1, 0, 0.5), # fog
-        (0, 0.5, 1), # cloud
-    ]
-
+    """ 
     with torch.no_grad():
         input = input.detach()
         metric = metric.detach()
