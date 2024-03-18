@@ -2,7 +2,6 @@ import os
 import cv2 as cv
 import numpy as np
 from glob import glob
-from typing import Tuple
 from torch.utils.data import Dataset
 from core.data.transforms.transforms import (
     Clip,
@@ -12,7 +11,6 @@ from core.data.transforms.transforms import (
     RandomCrop,
     FromTensor,
     Denormalize,
-    RandomGamma,
     RandomMirror,
     RandomRotate,
     ConvertColor,
@@ -24,12 +22,14 @@ from core.data.transforms.transforms import (
 
 class CloudDataset(Dataset):
     def __init__(self, cfg, root_dir: str, is_train: bool):
+        self.cfg = cfg
         self.root_dir = root_dir
+        self.num_classes = len(cfg.DATASET.CLASS_LABELS)
         self.imgs = sorted(glob(os.path.join(root_dir, "*", "img", "*")))
         self.rois = sorted(glob(os.path.join(root_dir, "*", "roi", "*")))
         self.labels = sorted(glob(os.path.join(root_dir, "*", "label", "*")))
         assert len(self.imgs) == len(self.labels) == len(self.rois)
-        self.transforms = self.build_transforms(img_size=cfg.INPUT.IMAGE_SIZE, is_train=is_train)
+        self.transforms = self.build_transforms(is_train=is_train)
 
     def __len__(self):
         return len(self.imgs)
@@ -45,43 +45,47 @@ class CloudDataset(Dataset):
 
         return image, label, roi
 
-    def build_transforms(self, img_size: Tuple[int, int], is_train: bool = True):
+    def build_transforms(self, is_train: bool = True):
+        if self.cfg.INPUT.DEPTH == 1:
+            transform = [ConvertColor('BGR', 'GRAY')]
+        else:
+            transform = [ConvertColor('BGR', 'RGB')]
+
         if is_train:
-            transform = [
-                ConvertColor('BGR', 'GRAY'),
+            transform += [
                 RandomCrop(0.5, 1.0, 0.5, True),
                 RandomMirror(0.5, 0.5),
                 RandomRotate(-45, 45, 0.5),
-                Resize(img_size),
+                Resize(self.cfg.INPUT.IMAGE_SIZE),
                 ConvertFromInts(),
-                # RandomGamma(0.5, 2.0, 0.25),
                 Clip()
             ]
         else:
-            transform = [
-                ConvertColor('BGR', 'GRAY'),
-                Resize(img_size),
+            transform += [
+                Resize(self.cfg.INPUT.IMAGE_SIZE),
                 ConvertFromInts(),
                 Clip()
             ]
 
-        transform = transform + [Normalize(norm_roi=True), ToTensor()]
+        transform = transform + [Normalize(self.cfg.INPUT.NORM_MEAN, self.cfg.INPUT.NORM_SCALE),
+                                 ToTensor()]
 
         return TransformCompose(transform)
 
     def visualize(self, tick_ms: int = 25):
         back_transforms = [
             FromTensor(),
-            Denormalize(denorm_roi=True),
+            Denormalize(self.cfg.INPUT.NORM_MEAN, self.cfg.INPUT.NORM_SCALE),
             ConvertToInts()
         ]
         back_transforms = TransformCompose(back_transforms)
 
+        color_step = int(255 / (self.num_classes - 1))
         for idx in range(0, self.__len__()):
             input, label, roi = self.__getitem__(idx)
             input, label, roi = back_transforms(input, label, roi)
 
-            label = 125 * np.concatenate(input.shape[-1] * [label], -1) # TODO: 125
+            label = color_step * np.concatenate(input.shape[-1] * [label], -1)
             roi = np.concatenate(input.shape[-1] * [roi], -1)
             collage = np.concatenate([input, label, roi], axis=1)
 

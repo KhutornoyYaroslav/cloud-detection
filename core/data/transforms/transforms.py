@@ -48,25 +48,22 @@ class Clip(object):
 
 
 class Normalize(object):
-    def __init__(self, norm_roi: bool = True):
-        self.norm_roi = norm_roi
+    def __init__(self, mean = [0], scale = [255]):
+        self.mean = mean
+        self.scale = scale
 
     def __call__(self, input, target, roi = None):
-        input = input.astype(np.float32) / 255.0
-        if roi is not None and self.norm_roi:
-            roi = roi.astype(np.float32) / 255.0
+        input = (input.astype(np.float32) - self.mean) / self.scale
 
         return input, target, roi
 
-
 class Denormalize(object):
-    def __init__(self, denorm_roi: bool = True):
-        self.denorm_roi = denorm_roi
+    def __init__(self, mean = [0], scale = [255]):
+        self.mean = mean
+        self.scale = scale
 
     def __call__(self, input, target, roi = None):
-        input = input.astype(np.float32) * 255.0
-        if roi is not None and self.denorm_roi:
-            roi = roi.astype(np.float32) * 255.0
+        input = self.scale * input + self.mean
 
         return input, target, roi
 
@@ -83,9 +80,10 @@ class ToTensor:
 
         # to tensor
         input = torch.from_numpy(input.astype(np.float32)).permute(2, 0, 1)
-        target = torch.from_numpy(target.astype(np.float32)).permute(2, 0, 1)
+        target = torch.from_numpy(target.astype(np.int64)).permute(2, 0, 1)
         if roi is not None:
             roi = torch.from_numpy(roi.astype(np.float32)).permute(2, 0, 1)
+            roi = roi / 255.0
 
         return input, target, roi
 
@@ -98,6 +96,7 @@ class FromTensor:
         input = input.permute(1, 2, 0).numpy().astype(self.dtype)
         target = target.permute(1, 2, 0).numpy().astype(self.dtype)
         if roi is not None:
+            roi = 255.0 * roi
             roi = roi.permute(1, 2, 0).numpy().astype(self.dtype)
 
         return input, target, roi
@@ -233,6 +232,6 @@ class RandomGamma(object):
         if np.random.choice([0, 1], size=1, p=[1-self.probability, self.probability]):
             gamma = np.random.uniform(self.lower, self.upper)
             # if np.mean(input) > 100:
-            input = pow(input / 255., gamma) * 255.
+            input = pow(input / 255., gamma) * 255. # TODO: check it
 
         return input, target, roi

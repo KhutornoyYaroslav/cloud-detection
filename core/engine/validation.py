@@ -1,19 +1,18 @@
 import torch
-import logging
 from tqdm import tqdm
-from core.engine.metrics import Dice, JaccardIndex, Precision, Recall
+from core.utils.colors import get_rgb_colors
 from core.utils.tensorboard import update_tensorboard_image_samples
+from core.engine.metrics import Dice, JaccardIndex, Precision, Recall
 
 
 def do_validation(cfg, model, data_loader, device):
-    logger = logging.getLogger("CORE")
-
     # create metrics
     cross_entropy = torch.nn.CrossEntropyLoss(reduction='none')
-    dice_metric = Dice(len(cfg.MODEL.CLASS_LABELS))
-    jaccard_metric = JaccardIndex(len(cfg.MODEL.CLASS_LABELS))
-    precision_metric = Precision(len(cfg.MODEL.CLASS_LABELS))
-    recall_metric = Recall(len(cfg.MODEL.CLASS_LABELS))
+    num_classes = len(cfg.DATASET.CLASS_LABELS)
+    dice_metric = Dice(num_classes)
+    jaccard_metric = JaccardIndex(num_classes)
+    precision_metric = Precision(num_classes)
+    recall_metric = Recall(num_classes)
 
     # create stats
     stats = {
@@ -66,6 +65,7 @@ def do_validation(cfg, model, data_loader, device):
                                              pred_labels=pred_labels, 
                                              target_labels=target_labels,
                                              min_metric_better=True,
+                                             class_colors=get_rgb_colors(num_classes, mean=cfg.INPUT.NORM_MEAN, scale=cfg.INPUT.NORM_SCALE),
                                              blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
                                              nonzero_factor=0.1)
 
@@ -77,6 +77,7 @@ def do_validation(cfg, model, data_loader, device):
                                              pred_labels=pred_labels, 
                                              target_labels=target_labels,
                                              min_metric_better=False,
+                                             class_colors=get_rgb_colors(num_classes, mean=cfg.INPUT.NORM_MEAN, scale=cfg.INPUT.NORM_SCALE),
                                              blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
                                              nonzero_factor=0.1)
 

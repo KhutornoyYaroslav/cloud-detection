@@ -3,10 +3,11 @@ import torch
 import logging
 import numpy as np
 from tqdm import tqdm
+from core.utils.colors import get_rgb_colors
 from core.engine.validation import do_validation
 from torch.utils.tensorboard import SummaryWriter
-from core.engine.metrics import Dice, JaccardIndex, Precision, Recall
 from core.utils.tensorboard import update_tensorboard_image_samples
+from core.engine.metrics import Dice, JaccardIndex, Precision, Recall
 
 
 def update_summary_writer(summary_writer, stats, iterations, optimizer, global_step, class_labels, is_train: bool = True):
@@ -80,10 +81,11 @@ def do_train(cfg,
 
     # create metrics
     cross_entropy = torch.nn.CrossEntropyLoss(reduction='none')
-    dice_metric = Dice(len(cfg.MODEL.CLASS_LABELS))
-    jaccard_metric = JaccardIndex(len(cfg.MODEL.CLASS_LABELS))
-    precision_metric = Precision(len(cfg.MODEL.CLASS_LABELS))
-    recall_metric = Recall(len(cfg.MODEL.CLASS_LABELS))
+    num_classes = len(cfg.DATASET.CLASS_LABELS)
+    dice_metric = Dice(num_classes)
+    jaccard_metric = JaccardIndex(num_classes)
+    precision_metric = Precision(num_classes)
+    recall_metric = Recall(num_classes)
 
     # epoch loop
     for epoch in range(start_epoch, end_epoch):
@@ -111,9 +113,9 @@ def do_train(cfg,
 
             # get data
             input, target_labels, roi = data_entry
-            input = input.to(device)                                                # (n, c, h, w)
-            target_labels = target_labels.squeeze(1).type(torch.long).to(device)    # (n, h, w)
-            roi = roi.squeeze(1).to(device)                                         # (n, h, w)
+            input = input.to(device)                               # (n, c, h, w)
+            target_labels = target_labels.squeeze(1).to(device)    # (n, h, w)
+            roi = roi.squeeze(1).to(device)                        # (n, h, w)
 
             # forward model
             output = model(input) # (n, k, h, w)
@@ -150,6 +152,7 @@ def do_train(cfg,
                                              pred_labels=pred_labels, 
                                              target_labels=target_labels,
                                              min_metric_better=True,
+                                             class_colors=get_rgb_colors(num_classes, mean=cfg.INPUT.NORM_MEAN, scale=cfg.INPUT.NORM_SCALE),
                                              blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
                                              nonzero_factor=0.25)
 
@@ -161,6 +164,7 @@ def do_train(cfg,
                                              pred_labels=pred_labels, 
                                              target_labels=target_labels,
                                              min_metric_better=False,
+                                             class_colors=get_rgb_colors(num_classes, mean=cfg.INPUT.NORM_MEAN, scale=cfg.INPUT.NORM_SCALE),
                                              blending_alpha=cfg.TENSORBOARD.ALPHA_BLENDING,
                                              nonzero_factor=0.25)
 
@@ -226,7 +230,7 @@ def do_train(cfg,
                                       val_stats['iterations'],
                                       optimizer,
                                       global_step,
-                                      cfg.MODEL.CLASS_LABELS,
+                                      cfg.DATASET.CLASS_LABELS,
                                       False)
 
         # save epoch results
@@ -238,7 +242,7 @@ def do_train(cfg,
                                       iteration + 1,
                                       optimizer,
                                       global_step,
-                                      cfg.MODEL.CLASS_LABELS,
+                                      cfg.DATASET.CLASS_LABELS,
                                       True)
 
     # save final model
