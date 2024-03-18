@@ -53,7 +53,6 @@ class Normalize(object):
         self.scale = scale
 
     def __call__(self, input, target, roi = None):
-        assert input.shape[-1] == len(self.mean) == len(self.scale)
         input = (input.astype(np.float32) - self.mean) / self.scale
 
         return input, target, roi
@@ -64,7 +63,6 @@ class Denormalize(object):
         self.scale = scale
 
     def __call__(self, input, target, roi = None):
-        assert input.shape[-1] == len(self.mean) == len(self.scale)
         input = self.scale * input + self.mean
 
         return input, target, roi
