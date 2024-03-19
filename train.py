@@ -10,6 +10,7 @@ from core.engine.train import do_train
 from core.utils.logger import setup_logger
 from core.utils.checkpoint import CheckPointer
 
+
 def train_model(cfg, args):
     logger = logging.getLogger('CORE')
     device = torch.device(cfg.MODEL.DEVICE)
