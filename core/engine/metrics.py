@@ -30,8 +30,8 @@ class Dice():
         """
         result = []
         for class_idx in range(self.num_classes):
-            preds_ = torch.where(preds == class_idx, 1, 0)
-            targets_ = torch.where(targets == class_idx, 1, 0)
+            preds_ = torch.where(preds.to(torch.long) == class_idx, 1, 0)
+            targets_ = torch.where(targets.to(torch.long) == class_idx, 1, 0)
 
             if roi_mask is not None:
                 preds_ = roi_mask * preds_
@@ -72,8 +72,8 @@ class JaccardIndex():
         """
         result = []
         for class_idx in range(self.num_classes):
-            preds_ = torch.where(preds == class_idx, 1, 0)
-            targets_ = torch.where(targets == class_idx, 1, 0)
+            preds_ = torch.where(preds.to(torch.long) == class_idx, 1, 0)
+            targets_ = torch.where(targets.to(torch.long) == class_idx, 1, 0)
 
             if roi_mask is not None:
                 preds_ = roi_mask * preds_
@@ -115,8 +115,8 @@ class Precision():
         """
         result = []
         for class_idx in range(self.num_classes):
-            preds_ = torch.where(preds == class_idx, 1, 0)
-            targets_ = torch.where(targets == class_idx, 1, 0)
+            preds_ = torch.where(preds.to(torch.long) == class_idx, 1, 0)
+            targets_ = torch.where(targets.to(torch.long) == class_idx, 1, 0)
 
             if roi_mask is not None:
                 preds_ = roi_mask * preds_
@@ -158,8 +158,8 @@ class Recall():
         """
         result = []
         for class_idx in range(self.num_classes):
-            preds_ = torch.where(preds == class_idx, 1, 0)
-            targets_ = torch.where(targets == class_idx, 1, 0)
+            preds_ = torch.where(preds.to(torch.long) == class_idx, 1, 0)
+            targets_ = torch.where(targets.to(torch.long) == class_idx, 1, 0)
 
             if roi_mask is not None:
                 preds_ = roi_mask * preds_
