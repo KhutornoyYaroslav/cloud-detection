@@ -67,8 +67,7 @@ class CloudDataset(Dataset):
                 Clip()
             ]
 
-        transform = transform + [Normalize(self.cfg.INPUT.NORM_MEAN, self.cfg.INPUT.NORM_SCALE),
-                                 ToTensor()]
+        transform += [Normalize(self.cfg.INPUT.NORM_MEAN, self.cfg.INPUT.NORM_SCALE), ToTensor()]
 
         return TransformCompose(transform)
 
