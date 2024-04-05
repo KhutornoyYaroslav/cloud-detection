@@ -13,7 +13,7 @@ class ResUnetPlusPlus(nn.Module):
     # https://arxiv.org/pdf/1911.07067.pdf
     # https://github.com/rishikksh20/ResUnet/tree/master
 
-    def __init__(self, cfg, filters=[32, 64, 128, 256, 512]):
+    def __init__(self, cfg, filters=[32, 48, 64, 96, 128]): #[32, 64, 128, 256, 512]):
         super(ResUnetPlusPlus, self).__init__()
 
         self.input_layer = nn.Sequential(
@@ -48,7 +48,7 @@ class ResUnetPlusPlus(nn.Module):
 
         self.aspp_out = ASPP(filters[1], filters[0])
 
-        self.output_layer = nn.Conv2d(filters[0], len(cfg.MODEL.CLASS_LABELS), 1)
+        self.output_layer = nn.Conv2d(filters[0], len(cfg.DATASET.CLASS_LABELS), 1)
 
     def forward(self, x):
         x1 = self.input_layer(x) + self.input_skip(x)

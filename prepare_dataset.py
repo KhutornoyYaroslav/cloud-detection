@@ -124,9 +124,9 @@ def main():
     parser = argparse.ArgumentParser(description='Dataset Preparing For Cloud Detection In Satellite Images')
     parser.add_argument('--src-path', dest='src_path', type=str, default="/media/yaroslav/SSD/khutornoy/data/clouds/sources/*/*/",
                         help="Pattern-like path to dataset directories")
-    parser.add_argument('--dst-root', dest='dst_root', type=str, default="/media/yaroslav/SSD/khutornoy/data/clouds/outputs/t256_rf1_se",
+    parser.add_argument('--dst-root', dest='dst_root', type=str, default="/media/yaroslav/SSD/khutornoy/data/clouds/outputs/t512_rf1_se",
                         help="Path where to save result dataset")
-    parser.add_argument('--tile-size', dest='tile_size', type=int, default=256,
+    parser.add_argument('--tile-size', dest='tile_size', type=int, default=512,
                         help="Size of output frames")
     parser.add_argument('--resize-factor', dest='resize_factor', type=float, default=1.0,
                         help="Factor for pre-resizing frames")

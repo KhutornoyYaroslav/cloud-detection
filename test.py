@@ -93,7 +93,7 @@ def main():
     parser = argparse.ArgumentParser(description='Cloud Detection In Satellite Images Model Testing With PyTorch')
     parser.add_argument("--config-file", dest="config_file", required=False, type=str, default="configs/cfg.yaml",
                         help="Path to config file")
-    parser.add_argument('--src-path', dest="src_path", required=False, type=str, default="data/tests/*",
+    parser.add_argument('--src-path', dest="src_path", required=False, type=str, default="data/tests/main/*",
                         help='Pattern-like path to source images to segment')
     parser.add_argument('--dst-root', dest="dst_root", required=False, type=str, default="data/results",
                         help='Path where to save results')
